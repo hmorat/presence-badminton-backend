@@ -1,14 +1,8 @@
 import express from "express";
-import cors from "cors";
 import pkg from "pg";
 
 const { Pool } = pkg;
-
-const app = express();
-
-/* ===== CONFIG ===== */
-app.use(cors());
-app.use(express.json());
+const router = express.Router();
 
 /* ===== DATABASE ===== */
 const pool = new Pool({
@@ -18,22 +12,17 @@ const pool = new Pool({
   },
 });
 
-/* ===== TEST ROOT ===== */
-app.get("/", (req, res) => {
-  res.send("API Badminton OK");
-});
-
 /* ===== ROUTE STATS ===== */
-app.get("/api/stats", async (req, res) => {
+router.get("/stats", async (req, res) => {
   try {
     /* ===== JOUEURS ===== */
     const joueurs = await pool.query(`
       SELECT 
-        j.licence,
-        j.prenom,
+        j.id,
         j.nom,
+        j.prenom,
         COUNT(p.id) AS total,
-        SUM(CASE WHEN p.present = true THEN 1 ELSE 0 END) AS presents
+        COALESCE(SUM(CASE WHEN p.present = true THEN 1 ELSE 0 END), 0) AS presents
       FROM joueurs j
       LEFT JOIN presences p ON p.joueur_id = j.id
       GROUP BY j.id
@@ -43,13 +32,14 @@ app.get("/api/stats", async (req, res) => {
     /* ===== CRENEAUX ===== */
     const creneaux = await pool.query(`
       SELECT 
-        c.code AS creneau_code,
+        c.id,
+        c.code,
         c.jour,
         c.horaire,
         c.gymnase,
         c.entraineur,
         COUNT(p.id) AS total,
-        SUM(CASE WHEN p.present = true THEN 1 ELSE 0 END) AS presents
+        COALESCE(SUM(CASE WHEN p.present = true THEN 1 ELSE 0 END), 0) AS presents
       FROM creneaux c
       LEFT JOIN presences p ON p.creneau_id = c.id
       GROUP BY c.id
@@ -61,7 +51,7 @@ app.get("/api/stats", async (req, res) => {
       SELECT 
         date_seance,
         COUNT(*) AS total,
-        SUM(CASE WHEN present = true THEN 1 ELSE 0 END) AS presents
+        COALESCE(SUM(CASE WHEN present = true THEN 1 ELSE 0 END), 0) AS presents
       FROM presences
       GROUP BY date_seance
       ORDER BY date_seance DESC
@@ -72,15 +62,12 @@ app.get("/api/stats", async (req, res) => {
       creneaux: creneaux.rows,
       dates: dates.rows,
     });
-  } catch (err) {
-    console.error("Erreur API :", err);
+
+  } catch (error) {
+    console.error("Erreur stats :", error);
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
 
-/* ===== PORT ===== */
-const PORT = process.env.PORT || 4000;
-
-app.listen(PORT, () => {
-  console.log("API running on port " + PORT);
-});
+/* ===== EXPORT ===== */
+export default router;
