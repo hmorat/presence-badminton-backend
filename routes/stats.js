@@ -25,7 +25,7 @@ router.get("/stats", async (req, res) => {
         COALESCE(SUM(CASE WHEN p.present = true THEN 1 ELSE 0 END), 0) AS presents
       FROM joueurs j
       LEFT JOIN presences p ON p.licence = j.licence
-      GROUP BY j.licence
+      GROUP BY j.licence, j.nom, j.prenom
       ORDER BY j.nom
     `);
 
