@@ -64,8 +64,8 @@ router.get("/stats", async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Erreur stats :", error);
-    res.status(500).json({ error: "Erreur serveur" });
+  console.error("Erreur stats :", error.message);
+  res.status(500).json({ error: error.message });
   }
 });
 
