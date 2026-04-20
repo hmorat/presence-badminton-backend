@@ -13,15 +13,17 @@ router.get("/stats", async (req, res) => {
   const { creneau } = req.query;
 
   try {
-    /* ===== CONDITION FILTRE ===== */
-    const filter = creneau && creneau !== "ALL"
-      ? `WHERE p.creneau_code = $1`
+    /* ===== FILTRE ===== */
+    const hasFilter = creneau && creneau !== "ALL";
+
+    const filterClause = hasFilter
+      ? "WHERE p.creneau_code = $1"
       : "";
 
-    const params = creneau && creneau !== "ALL" ? [creneau] : [];
+    const params = hasFilter ? [creneau] : [];
 
     /* ===== JOUEURS ===== */
-    const joueurs = await pool.query(`
+    const joueursQuery = `
       SELECT 
         j.licence,
         j.nom,
@@ -31,39 +33,46 @@ router.get("/stats", async (req, res) => {
       FROM joueurs j
       LEFT JOIN presences p 
         ON p.licence = j.licence
-      ${filter}
+        ${hasFilter ? "AND p.creneau_code = $1" : ""}
       GROUP BY j.licence, j.nom, j.prenom
-      ORDER BY j.nom
-    `, params);
+      ORDER BY j.nom, j.prenom
+    `;
+
+    const joueurs = await pool.query(joueursQuery, params);
 
     /* ===== CRENEAUX ===== */
     const creneaux = await pool.query(`
-  SELECT 
-    c.code,
-    c.jour,
-    c.horaire,
-    c.gymnase,
-    c.entraineur,
-    COUNT(p.id) AS total,
-    COALESCE(SUM(CASE WHEN p.present = true THEN 1 ELSE 0 END), 0) AS presents
-  FROM creneaux c
-  LEFT JOIN presences p ON p.creneau_code = c.code
-  GROUP BY c.code, c.jour, c.horaire, c.gymnase, c.entraineur
-  ORDER BY c.code
-`);
+      SELECT 
+        c.creneau_code AS code,
+        c.jour,
+        c.horaire,
+        c.gymnase,
+        c.entraineur,
+        COUNT(p.id) AS total,
+        COALESCE(SUM(CASE WHEN p.present = true THEN 1 ELSE 0 END), 0) AS presents
+      FROM creneaux c
+      LEFT JOIN presences p 
+        ON p.creneau_code = c.creneau_code
+      GROUP BY 
+        c.creneau_code, c.jour, c.horaire, c.gymnase, c.entraineur
+      ORDER BY c.jour, c.horaire
+    `);
 
     /* ===== DATES ===== */
-    const dates = await pool.query(`
+    const datesQuery = `
       SELECT 
-        date_seance,
+        p.date_seance,
         COUNT(*) AS total,
-        COALESCE(SUM(CASE WHEN present = true THEN 1 ELSE 0 END), 0) AS presents
-      FROM presences
-      ${filter}
-      GROUP BY date_seance
-      ORDER BY date_seance DESC
-    `, params);
+        COALESCE(SUM(CASE WHEN p.present = true THEN 1 ELSE 0 END), 0) AS presents
+      FROM presences p
+      ${filterClause}
+      GROUP BY p.date_seance
+      ORDER BY p.date_seance DESC
+    `;
 
+    const dates = await pool.query(datesQuery, params);
+
+    /* ===== RESPONSE ===== */
     res.json({
       joueurs: joueurs.rows,
       creneaux: creneaux.rows,
@@ -71,8 +80,11 @@ router.get("/stats", async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Erreur stats :", error.message);
-    res.status(500).json({ error: error.message });
+    console.error("Erreur stats :", error);
+    res.status(500).json({
+      error: "Erreur serveur",
+      details: error.message,
+    });
   }
 });
 
