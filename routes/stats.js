@@ -1,18 +1,30 @@
 import express from "express";
+import cors from "cors";
 import pkg from "pg";
 
-const router = express.Router();
 const { Pool } = pkg;
 
+const app = express();
+
+/* ===== CONFIG ===== */
+app.use(cors());
+app.use(express.json());
+
+/* ===== DATABASE ===== */
 const pool = new Pool({
   connectionString: process.env.SUPABASE_CONN,
-  ssl: { rejectUnauthorized: false },
+  ssl: {
+    rejectUnauthorized: false,
+  },
 });
 
-/* =========================================================
-   GET /api/stats
-========================================================= */
-router.get("/stats", async (req, res) => {
+/* ===== TEST ROOT ===== */
+app.get("/", (req, res) => {
+  res.send("API Badminton OK");
+});
+
+/* ===== ROUTE STATS ===== */
+app.get("/api/stats", async (req, res) => {
   try {
     /* ===== JOUEURS ===== */
     const joueurs = await pool.query(`
@@ -20,55 +32,36 @@ router.get("/stats", async (req, res) => {
         j.licence,
         j.prenom,
         j.nom,
-
-        COALESCE(
-          ARRAY_AGG(DISTINCT p.creneau_code)
-          FILTER (WHERE p.creneau_code IS NOT NULL),
-          '{}'
-        ) AS creneaux,
-
-        COUNT(p.present) FILTER (WHERE p.present = true) AS presents,
-        COUNT(p.present) AS total
-
+        COUNT(p.id) AS total,
+        SUM(CASE WHEN p.present = true THEN 1 ELSE 0 END) AS presents
       FROM joueurs j
-      LEFT JOIN presences p ON j.licence = p.licence
-
-      GROUP BY j.licence, j.prenom, j.nom
-      ORDER BY j.nom, j.prenom
+      LEFT JOIN presences p ON p.joueur_id = j.id
+      GROUP BY j.id
+      ORDER BY j.nom
     `);
 
-    /* ===== CRENEAUX (AVEC INFOS COMPLETES) ===== */
+    /* ===== CRENEAUX ===== */
     const creneaux = await pool.query(`
       SELECT 
-        c.creneau_code,
+        c.code AS creneau_code,
         c.jour,
         c.horaire,
         c.gymnase,
         c.entraineur,
-
-        COUNT(p.present) FILTER (WHERE p.present = true) AS presents,
-        COUNT(p.present) AS total
-
+        COUNT(p.id) AS total,
+        SUM(CASE WHEN p.present = true THEN 1 ELSE 0 END) AS presents
       FROM creneaux c
-      LEFT JOIN presences p ON c.creneau_code = p.creneau_code
-
-      GROUP BY 
-        c.creneau_code,
-        c.jour,
-        c.horaire,
-        c.gymnase,
-        c.entraineur
-
-      ORDER BY c.creneau_code
+      LEFT JOIN presences p ON p.creneau_id = c.id
+      GROUP BY c.id
+      ORDER BY c.code
     `);
 
     /* ===== DATES ===== */
     const dates = await pool.query(`
       SELECT 
         date_seance,
-        COUNT(present) FILTER (WHERE present = true) AS presents,
-        COUNT(*) AS total
-
+        COUNT(*) AS total,
+        SUM(CASE WHEN present = true THEN 1 ELSE 0 END) AS presents
       FROM presences
       GROUP BY date_seance
       ORDER BY date_seance DESC
@@ -80,9 +73,14 @@ router.get("/stats", async (req, res) => {
       dates: dates.rows,
     });
   } catch (err) {
-    console.error("❌ ERREUR STATS :", err);
-    res.status(500).json({ error: err.message });
+    console.error("Erreur API :", err);
+    res.status(500).json({ error: "Erreur serveur" });
   }
 });
 
-export default router;
+/* ===== PORT ===== */
+const PORT = process.env.PORT || 4000;
+
+app.listen(PORT, () => {
+  console.log("API running on port " + PORT);
+});
