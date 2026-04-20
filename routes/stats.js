@@ -18,32 +18,26 @@ router.get("/stats", async (req, res) => {
     /* ===== JOUEURS ===== */
     const joueurs = await pool.query(`
       SELECT 
-        j.id,
+        j.licence,
         j.nom,
         j.prenom,
         COUNT(p.id) AS total,
         COALESCE(SUM(CASE WHEN p.present = true THEN 1 ELSE 0 END), 0) AS presents
       FROM joueurs j
-      LEFT JOIN presences p ON p.joueur_id = j.id
-      GROUP BY j.id
+      LEFT JOIN presences p ON p.licence = j.licence
+      GROUP BY j.licence
       ORDER BY j.nom
     `);
 
     /* ===== CRENEAUX ===== */
     const creneaux = await pool.query(`
       SELECT 
-        c.id,
-        c.code,
-        c.jour,
-        c.horaire,
-        c.gymnase,
-        c.entraineur,
-        COUNT(p.id) AS total,
+        p.creneau_code AS code,
+        COUNT(*) AS total,
         COALESCE(SUM(CASE WHEN p.present = true THEN 1 ELSE 0 END), 0) AS presents
-      FROM creneaux c
-      LEFT JOIN presences p ON p.creneau_id = c.id
-      GROUP BY c.id
-      ORDER BY c.code
+      FROM presences p
+      GROUP BY p.creneau_code
+      ORDER BY p.creneau_code
     `);
 
     /* ===== DATES ===== */
