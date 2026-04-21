@@ -82,34 +82,34 @@ app.get("/api/joueurs", async (req, res) => {
 // =============================
 app.get("/api/stats", async (req, res) => {
   try {
-    const { creneau } = req.query;
+    const { creneau, date } = req.query;
 
-    let query = `
+    console.log("FILTERS:", creneau, date);
+
+    const result = await pool.query(
+      `
       SELECT 
         j.licence,
         j.nom,
         j.prenom,
-        COUNT(p.*) AS total,
+        COUNT(p.id) AS total,
         COUNT(CASE WHEN p.present = true THEN 1 END) AS presents
       FROM joueurs j
       LEFT JOIN presences p 
         ON j.licence::text = p.licence::text
-    `;
-
-    if (creneau) {
-      query += ` AND p.creneau_code = '${creneau}'`;
-    }
-
-    query += `
+        AND ($1::text IS NULL OR p.creneau_code = $1)
+        AND ($2 IS NULL OR p.date_seance = DATE($2))
       GROUP BY j.licence, j.nom, j.prenom
-      ORDER BY j.nom
-    `;
-
-    const result = await pool.query(query);
+      HAVING COUNT(p.id) > 0
+      ORDER BY j.nom ASC
+      `,
+      [creneau || null, date || null]
+    );
 
     res.json({ joueurs: result.rows });
+
   } catch (err) {
-    console.error("ERREUR /stats :", err);
+    console.error("ERREUR STATS:", err);
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
