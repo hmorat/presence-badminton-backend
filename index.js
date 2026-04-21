@@ -36,12 +36,32 @@ app.get("/api/creneaux", async (req, res) => {
 // ===============================
 app.get("/api/joueurs", async (req, res) => {
   try {
-    const result = await pool.query(`
-      SELECT * FROM joueurs
-      ORDER BY nom ASC
-    `);
+    const { creneau } = req.query;
+
+    console.log("GET JOUEURS =", creneau);
+
+    if (!creneau) {
+      return res.json([]);
+    }
+
+    const result = await pool.query(
+      `
+      SELECT j.*
+      FROM joueurs j
+      WHERE j.licence::text IN (
+        SELECT jc.licence::text
+        FROM joueurs_creneaux jc
+        WHERE jc.creneau_code = $1
+      )
+      ORDER BY j.nom ASC
+      `,
+      [creneau]
+    );
+
+    console.log("NB JOUEURS =", result.rows.length);
 
     res.json(result.rows);
+
   } catch (err) {
     console.error("ERREUR /joueurs:", err);
     res.status(500).json({ error: "Erreur serveur" });
@@ -83,29 +103,32 @@ app.get("/api/dates", async (req, res) => {
 // ===============================
 // 🔽 GET PRESENCES (pour affichage)
 // ===============================
-app.get("/api/presences", async (req, res) => {
+app.get("/api/joueurs", async (req, res) => {
   try {
-    const { creneau, date } = req.query;
+    const { creneau } = req.query;
 
-    console.log("GET PRESENCES:", creneau, date);
+    console.log("GET JOUEURS:", creneau);
 
-    if (!creneau || !date) {
+    if (!creneau) {
       return res.json([]);
     }
 
     const result = await pool.query(
       `
-      SELECT licence, present
-      FROM presences
-      WHERE creneau_code = $1
-      AND date_seance = DATE($2)
+      SELECT j.*
+      FROM joueurs j
+      INNER JOIN joueurs_creneaux jc
+        ON j.licence::text = jc.licence::text
+      WHERE jc.creneau_code = $1
+      ORDER BY j.nom ASC
       `,
-      [creneau, date]
+      [creneau]
     );
 
     res.json(result.rows);
+
   } catch (err) {
-    console.error("ERREUR /presences:", err);
+    console.error("ERREUR /joueurs:", err);
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
