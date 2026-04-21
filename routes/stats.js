@@ -3,50 +3,35 @@ import { pool } from "../db.js";
 
 const router = express.Router();
 
-router.get("/", async (req, res) => {
-  const { creneau } = req.query;
-
+app.get("/api/stats", async (req, res) => {
   try {
-    let query;
-    let values = [];
+    const { creneau, date } = req.query;
 
-    if (creneau && creneau !== "ALL") {
-      query = `
-        SELECT 
-          j.licence,
-          j.nom,
-          j.prenom,
-          COUNT(*) AS total,
-          COUNT(*) FILTER (WHERE p.present = true) AS presents
-        FROM presences p
-        JOIN joueurs j 
-          ON p.licence::text = j.licence::text
-        WHERE p.creneau_code = $1
-        GROUP BY j.licence, j.nom, j.prenom
-        ORDER BY j.nom ASC
-      `;
-      values = [creneau];
-    } else {
-      query = `
-        SELECT 
-          j.licence,
-          j.nom,
-          j.prenom,
-          COUNT(p.*) AS total,
-          COUNT(*) FILTER (WHERE p.present = true) AS presents
-        FROM joueurs j
-        LEFT JOIN presences p 
-          ON p.licence::text = j.licence::text
-        GROUP BY j.licence, j.nom, j.prenom
-        ORDER BY j.nom ASC
-      `;
-    }
-
-    const result = await pool.query(query, values);
+    const result = await pool.query(
+      `
+      SELECT 
+        j.licence,
+        j.nom,
+        j.prenom,
+        COUNT(p.id) AS total,
+        COUNT(CASE WHEN p.present = true THEN 1 END) AS presents
+      FROM joueurs j
+      LEFT JOIN presences p 
+        ON j.licence::text = p.licence::text
+        AND ($1::text IS NULL OR p.creneau_code = $1)
+        AND ($2::date IS NULL OR p.date_seance = $2)
+      GROUP BY j.licence, j.nom, j.prenom
+      ORDER BY j.nom ASC
+      `,
+      [
+        creneau || null,
+        date || null
+      ]
+    );
 
     res.json({ joueurs: result.rows });
   } catch (err) {
-    console.error(err);
+    console.error("ERREUR /stats :", err);
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
