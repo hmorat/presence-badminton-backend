@@ -1,69 +1,53 @@
 import express from "express";
-import pkg from "pg";
+import { pool } from "../db.js";
 
-const { Pool } = pkg;
 const router = express.Router();
 
-const pool = new Pool({
-  connectionString: process.env.SUPABASE_CONN,
-  ssl: { rejectUnauthorized: false },
-});
-
-router.get("/stats", async (req, res) => {
+router.get("/", async (req, res) => {
   const { creneau } = req.query;
 
   try {
-    const hasFilter = creneau && creneau !== "ALL";
+    let query;
+    let values = [];
 
-    /* ===== JOUEURS ===== */
-    const joueurs = await pool.query(
-      `
-      SELECT 
-        j.licence,
-        j.nom,
-        j.prenom,
-        COUNT(p.id) AS total,
-        COALESCE(SUM(CASE WHEN p.present = true THEN 1 ELSE 0 END), 0) AS presents
-      FROM joueurs j
-      LEFT JOIN presences p 
-        ON p.licence = j.licence
-        ${hasFilter ? "AND p.creneau_code = $1" : ""}
-      GROUP BY j.licence, j.nom, j.prenom
-      ORDER BY j.nom
-      `,
-      hasFilter ? [creneau] : []
-    );
+    if (creneau && creneau !== "ALL") {
+      query = `
+        SELECT 
+          j.licence,
+          j.nom,
+          j.prenom,
+          COUNT(*) AS total,
+          COUNT(*) FILTER (WHERE p.present = true) AS presents
+        FROM presences p
+        JOIN joueurs j 
+          ON p.licence::text = j.licence::text
+        WHERE p.creneau_code = $1
+        GROUP BY j.licence, j.nom, j.prenom
+        ORDER BY j.nom ASC
+      `;
+      values = [creneau];
+    } else {
+      query = `
+        SELECT 
+          j.licence,
+          j.nom,
+          j.prenom,
+          COUNT(p.*) AS total,
+          COUNT(*) FILTER (WHERE p.present = true) AS presents
+        FROM joueurs j
+        LEFT JOIN presences p 
+          ON p.licence::text = j.licence::text
+        GROUP BY j.licence, j.nom, j.prenom
+        ORDER BY j.nom ASC
+      `;
+    }
 
-    /* ===== CRENEAUX (FILTRÉS AUSSI) ===== */
-    const creneaux = await pool.query(
-      `
-      SELECT 
-        c.creneau_code AS code,
-        c.jour,
-        c.horaire,
-        c.gymnase,
-        c.entraineur,
-        COUNT(p.id) AS total,
-        COALESCE(SUM(CASE WHEN p.present = true THEN 1 ELSE 0 END), 0) AS presents
-      FROM creneaux c
-      LEFT JOIN presences p 
-        ON p.creneau_code = c.creneau_code
-      ${hasFilter ? "WHERE c.creneau_code = $1" : ""}
-      GROUP BY 
-        c.creneau_code, c.jour, c.horaire, c.gymnase, c.entraineur
-      ORDER BY c.jour, c.horaire
-      `,
-      hasFilter ? [creneau] : []
-    );
+    const result = await pool.query(query, values);
 
-    res.json({
-      joueurs: joueurs.rows,
-      creneaux: creneaux.rows,
-    });
-
-  } catch (error) {
-    console.error("Erreur stats :", error);
-    res.status(500).json({ error: error.message });
+    res.json({ joueurs: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erreur serveur" });
   }
 });
 
