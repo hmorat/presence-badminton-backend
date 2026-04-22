@@ -36,14 +36,10 @@ app.get("/api/creneaux", async (req, res) => {
 
     res.json(result.rows);
 
-  } catch (err) {
-    console.error("ERREUR SQL COMPLETE:", err);
-
-    res.status(500).json({
-      error: err.message,
-      detail: err,
-    });
-  }
+  catch (err) {
+  console.error("ERREUR:", err);
+  res.status(500).json({ error: err.message });
+}
 });
 
 // =============================
@@ -52,17 +48,17 @@ app.get("/api/creneaux", async (req, res) => {
 app.get("/api/dates", async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT date_seance
-      FROM dates
-      ORDER BY date_seance DESC
+      SELECT DISTINCT date_seance
+      FROM presences
+      ORDER BY date_seance
     `);
 
     res.json(result.rows);
 
-  } catch (err) {
-    console.error("ERREUR /dates:", err);
-    res.status(500).json({ error: "Erreur serveur" });
-  }
+  }catch (err) {
+  console.error("ERREUR:", err);
+  res.status(500).json({ error: err.message });
+}
 });
 
 // =============================
@@ -90,10 +86,10 @@ app.get("/api/joueurs", async (req, res) => {
 
     res.json(result.rows);
 
-  } catch (err) {
-    console.error("ERREUR /joueurs:", err);
-    res.status(500).json({ error: "Erreur serveur" });
-  }
+  }catch (err) {
+  console.error("ERREUR:", err);
+  res.status(500).json({ error: err.message });
+}
 });
 
 // =============================
@@ -115,10 +111,10 @@ app.get("/api/presences", async (req, res) => {
 
     res.json(result.rows);
 
-  } catch (err) {
-    console.error("ERREUR /presences:", err);
-    res.status(500).json({ error: "Erreur serveur" });
-  }
+  catch (err) {
+  console.error("ERREUR:", err);
+  res.status(500).json({ error: err.message });
+}
 });
 
 // =============================
@@ -140,10 +136,10 @@ app.post("/api/presence", async (req, res) => {
 
     res.json({ success: true });
 
-  } catch (err) {
-    console.error("ERREUR POST /presence:", err);
-    res.status(500).json({ error: "Erreur serveur" });
-  }
+  catch (err) {
+  console.error("ERREUR:", err);
+  res.status(500).json({ error: err.message });
+}
 });
 
 // =============================
