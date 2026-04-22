@@ -28,7 +28,11 @@ app.get("/api/creneaux", async (req, res) => {
   try {
     console.log("TEST DB CONNECTION...");
 
-    const result = await pool.query("SELECT NOW()");
+    const result = await pool.query(`
+  SELECT creneau_code, jour, horaire
+  FROM creneaux
+  ORDER BY creneau_code
+`);
 
     res.json(result.rows);
 
