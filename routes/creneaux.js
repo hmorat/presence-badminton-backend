@@ -1,26 +1,14 @@
-import express from "express";
-import { pool } from "../db.js";
-
-const router = express.Router();
-
-router.get("/", async (req, res) => {
+// Dans ton fichier backend/routes/creneaux.js
+router.get('/', async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      `SELECT
-         creneau_code,
-         jour,
-         gymnase,
-         horaire,
-         entraineur
-       FROM creneaux
-       ORDER BY jour, horaire`
-    );
+    // On demande TOUTES les colonnes avec l'astérisque * // ou on les liste précisément en respectant les majuscules de ta base
+    const { data, error } = await supabase
+      .from('creneaux')
+      .select('creneau_code, Jour, Horaire, Gymnase, Entraineur'); 
 
-    res.json(rows);
+    if (error) throw error;
+    res.json(data);
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
-
-export default router;
