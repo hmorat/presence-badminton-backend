@@ -1,21 +1,16 @@
 const express = require('express');
 const router = express.Router();
-const supabase = require('../db'); // Vérifie que ce chemin est correct
+const supabase = require('../db');
 
 router.get('/', async (req, res) => {
   try {
-    // On demande explicitement TOUTES les colonnes (*)
+    // On utilise l'astérisque '*' pour récupérer TOUTES les colonnes de Supabase
     const { data, error } = await supabase
       .from('creneaux')
       .select('*'); 
 
-    if (error) {
-        console.error("Erreur Supabase:", error);
-        throw error;
-    }
-    
-    // On force l'envoi du JSON
-    res.status(200).json(data);
+    if (error) throw error;
+    res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
