@@ -4,10 +4,10 @@ const supabase = require('../db');
 
 router.get('/', async (req, res) => {
   try {
-    // On demande précisément les colonnes telles qu'elles sont dans Supabase
+    // On ne demande que les 3 colonnes qui marchent à coup sûr
     const { data, error } = await supabase
       .from('creneaux')
-      .select('creneau_code, Jour, Horaire, Gymnase, Entraineur'); 
+      .select('creneau_code, Jour, Horaire'); 
 
     if (error) throw error;
     res.json(data);
