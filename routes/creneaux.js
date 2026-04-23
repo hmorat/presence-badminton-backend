@@ -1,14 +1,21 @@
-// Dans ton fichier backend/routes/creneaux.js
+const express = require('express');
+const router = express.Router();
+const supabase = require('../db'); // Connexion à ta base Supabase
+
 router.get('/', async (req, res) => {
   try {
-    // On demande TOUTES les colonnes avec l'astérisque * // ou on les liste précisément en respectant les majuscules de ta base
+    // CRUCIAL : On utilise '*' pour dire à Supabase de TOUT envoyer 
+    // (incluant Gymnase et Entraineur)
     const { data, error } = await supabase
       .from('creneaux')
-      .select('creneau_code, Jour, Horaire, Gymnase, Entraineur'); 
+      .select('*'); 
 
     if (error) throw error;
     res.json(data);
   } catch (err) {
+    console.error("Erreur serveur :", err);
     res.status(500).json({ error: err.message });
   }
 });
+
+module.exports = router;
