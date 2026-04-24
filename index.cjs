@@ -14,68 +14,64 @@ const pool = new Pool({
 app.use(cors());
 app.use(express.json());
 
-// 1. MENU CRÉNEAUX : Trié par code (A, B, C...)
+// 1. MENU CRÉNEAUX
 app.get('/api/creneaux', async (req, res) => {
   try {
-    const result = await pool.query(`SELECT * FROM creneaux ORDER BY creneau_code ASC`);
+    const result = await pool.query('SELECT * FROM creneaux ORDER BY creneau_code ASC');
     res.json(result.rows);
   } catch (err) {
-    console.error("Erreur créneaux:", err.message);
     res.status(500).json([]);
   }
 });
 
-// 2. LISTE DES JOUEURS : Fusion entre Inscrits et Présences
+// 2. LISTE DES JOUEURS (Source: joueurs_creneaux + jointure presences)
 app.get('/api/joueurs', async (req, res) => {
   try {
     const { creneau, date } = req.query;
     if (!creneau || !date) return res.json([]);
 
-    // On extrait le code court (ex: "F11") au cas où le front envoie "F11 : LUNDI"
-    const codeCourt = creneau.split(' ')[0].trim();
+    const codeNettoye = creneau.split(':')[0].trim();
 
     const query = `
       SELECT 
         j.nom, 
         j.prenom, 
-        j.licence,
-        COALESCE(s.presence, false) as presence
+        jc.licence,
+        COALESCE(p.present, false) AS present
       FROM joueurs_creneaux jc
       JOIN joueurs j ON jc.licence = j.licence
-      LEFT JOIN seances s ON (
-        s.licence = j.licence 
-        AND s.date_seance = $2 
-        AND s.creneau_code = $1
+      LEFT JOIN presences p ON (
+        p.licence = jc.licence 
+        AND p.date_seance = $2 
+        AND p.creneau_code = $1
       )
       WHERE jc.creneau_code = $1
-      ORDER BY j.nom ASC, j.prenom ASC
+      ORDER BY j.nom ASC
     `;
 
-    const result = await pool.query(query, [codeCourt, date]);
-    console.log(`[LOG] ${codeCourt} à la date ${date} : ${result.rowCount} joueurs trouvés`);
+    const result = await pool.query(query, [codeNettoye, date]);
+    console.log(`[LOG] ${codeNettoye} : ${result.rowCount} joueurs envoyés`);
     res.json(result.rows);
-
   } catch (err) {
     console.error("Erreur SQL Joueurs:", err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json([]);
   }
 });
 
-// 3. SAUVEGARDE DES PRÉSENCES
+// 3. SAUVEGARDE (Vers la table presences)
 app.post('/api/presences', async (req, res) => {
   const { creneau, date, joueurs } = req.body;
-  if (!creneau || !date || !joueurs) return res.status(400).json({ error: "Données manquantes" });
-  
-  const codeCourt = creneau.split(' ')[0].trim();
+  const codeNettoye = creneau.split(':')[0].trim();
 
   try {
     for (const j of joueurs) {
-      await pool.query(`
-        INSERT INTO seances (licence, creneau_code, date_seance, presence, nom, prenom)
-        VALUES ($1, $2, $3, $4, $5, $6)
+      const query = `
+        INSERT INTO presences (licence, creneau_code, date_seance, present)
+        VALUES ($1, $2, $3, $4)
         ON CONFLICT (licence, date_seance, creneau_code) 
-        DO UPDATE SET presence = EXCLUDED.presence
-      `, [j.licence, codeCourt, date, j.presence, j.nom, j.prenom]);
+        DO UPDATE SET present = EXCLUDED.present
+      `;
+      await pool.query(query, [j.licence, codeNettoye, date, j.present]);
     }
     res.json({ success: true });
   } catch (err) {
@@ -84,4 +80,4 @@ app.post('/api/presences', async (req, res) => {
   }
 });
 
-app.listen(port, () => console.log(`Serveur prêt sur le port ${port}`));
+app.listen(port, () => console.log(`Serveur sur port ${port}`));
