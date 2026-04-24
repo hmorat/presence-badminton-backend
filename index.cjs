@@ -47,7 +47,12 @@ app.get('/api/creneaux', async (req, res) => {
     res.json(result.rows);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Erreur lors du chargement des créneaux" });
+    // On renvoie l'erreur précise pour comprendre le blocage
+    res.status(500).json({ 
+        error: "Détail technique de l'erreur", 
+        message: err.message, 
+        code: err.code 
+    });
   }
 });
 
