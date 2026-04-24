@@ -6,21 +6,17 @@ require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 3000;
 
-// 1. Connexion sécurisée à Supabase
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
+  ssl: { rejectUnauthorized: false }
 });
 
 app.use(cors());
 app.use(express.json());
 
-// 2. Route Créneaux : Triés par JOUR puis par NOM (Ordre alphabétique)
+// 1. Liste des créneaux (Triée par jour puis code)
 app.get('/api/creneaux', async (req, res) => {
   try {
-    // On trie d'abord par jour pour la cohérence, puis par creneau_code alphabétique
     const result = await pool.query(`
       SELECT * FROM creneaux 
       ORDER BY 
@@ -37,41 +33,39 @@ app.get('/api/creneaux', async (req, res) => {
     `);
     res.json(result.rows);
   } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ error: "Erreur lors du chargement des créneaux" });
+    res.status(500).json([]); // On renvoie un tableau vide en cas d'erreur pour éviter le crash front
   }
 });
 
-// 3. Route Joueurs : Correction du lien entre 'seances' et 'creneaux'
+// 2. Liste des joueurs (Correction de la jointure SQL)
 app.get('/api/joueurs', async (req, res) => {
   try {
-    const { creneau } = req.query; // Le code envoyé par le front (ex: PE41:1)
+    const { creneau } = req.query; 
 
-    if (!creneau) {
-      return res.status(400).json({ error: "Aucun créneau sélectionné" });
-    }
+    if (!creneau) return res.json([]);
 
-    // On joint les deux tables pour filtrer par 'creneau_code' 
-    // qui se trouve dans la table 'creneaux'
+    // On utilise les alias : s pour seances, c pour creneaux
+    // On lie s.creneau_id (dans seances) à c.id (dans creneaux)
     const query = `
       SELECT s.* FROM seances s
-      JOIN creneaux c ON s.creneau_id = c.id
+      INNER JOIN creneaux c ON s.creneau_id = c.id
       WHERE c.creneau_code = $1
       ORDER BY s.entraineur ASC
     `;
 
     const result = await pool.query(query, [creneau]);
     
-    // On renvoie un tableau vide [] si aucun joueur n'est trouvé 
-    // Cela évite l'écran blanc (TypeError: d.map is not a function)
+    // IMPORTANT : Toujours renvoyer un tableau, même vide
     res.json(result.rows || []);
     
   } catch (err) {
-    console.error("Erreur technique joueurs:", err.message);
-    res.status(500).json({ error: "Erreur serveur", details: err.message });
+    console.error("ERREUR SQL:", err.message);
+    // En cas d'erreur, on renvoie un tableau vide [] au lieu d'une erreur 500
+    // C'est ce qui empêchera l'écran de devenir blanc !
+    res.json([]); 
   }
 });
 
 app.listen(port, () => {
-  console.log(`Serveur prêt sur le port ${port}`);
+  console.log(`Serveur démarré sur le port ${port}`);
 });
