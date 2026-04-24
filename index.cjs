@@ -14,33 +14,27 @@ const pool = new Pool({
 app.use(cors());
 app.use(express.json());
 
-/**
- * 1. RÉCUPÉRER LES CRÉNEAUX (Trié par Nom de créneau)
- */
+// 1. CRÉNEAUX : Tri alphabétique sur le code (ex: A, B, C...)
 app.get('/api/creneaux', async (req, res) => {
   try {
-    // Tri alphabétique simple sur le code du créneau (ex: F11, PE41...)
     const result = await pool.query(`
       SELECT * FROM creneaux 
       ORDER BY creneau_code ASC
     `);
     res.json(result.rows);
   } catch (err) {
-    console.error("Erreur /api/creneaux:", err.message);
     res.status(500).json([]);
   }
 });
 
-/**
- * 2. RÉCUPÉRER LES JOUEURS (Via table de liaison joueurs_creneaux)
- */
+// 2. JOUEURS : On récupère via la table de liaison
 app.get('/api/joueurs', async (req, res) => {
   try {
     const { creneau, date } = req.query;
     if (!creneau || !date) return res.json([]);
 
-    // Note : On utilise LEFT JOIN pour s'assurer que si un joueur est dans 
-    // joueurs_creneaux, il apparaît même s'il n'a pas encore de ligne dans seances.
+    // On utilise ILIKE pour être moins strict sur les majuscules/minuscules
+    // On garde INNER JOIN car la licence est censée être identique
     const query = `
       SELECT 
         j.nom, 
@@ -48,31 +42,26 @@ app.get('/api/joueurs', async (req, res) => {
         j.licence,
         COALESCE(s.presence, false) as presence
       FROM joueurs_creneaux jc
-      INNER JOIN joueurs j ON jc.licence = j.licence
+      JOIN joueurs j ON jc.licence = j.licence
       LEFT JOIN seances s ON (
         s.licence = j.licence 
         AND s.date_seance = $2 
         AND s.creneau_code = $1
       )
-      WHERE jc.creneau_code = $1
+      WHERE jc.creneau_code ILIKE $1
       ORDER BY j.nom ASC, j.prenom ASC
     `;
 
     const result = await pool.query(query, [creneau, date]);
-    
-    // Log crucial pour voir ce qui remonte dans Render
-    console.log(`[DEBUG] Créneau: ${creneau}, Date: ${date} -> ${result.rowCount} joueurs trouvés`);
-    
+    console.log(`Recherche ${creneau} : ${result.rowCount} joueurs trouvés`);
     res.json(result.rows);
   } catch (err) {
-    console.error("ERREUR SQL JOUEURS:", err.message);
+    console.error("Erreur SQL:", err.message);
     res.json([]);
   }
 });
 
-/**
- * 3. ENREGISTRER LES PRÉSENCES
- */
+// 3. SAUVEGARDE (POST)
 app.post('/api/presences', async (req, res) => {
   const { creneau, date, joueurs } = req.body;
   try {
@@ -86,11 +75,8 @@ app.post('/api/presences', async (req, res) => {
     }
     res.json({ success: true });
   } catch (err) {
-    console.error("Erreur POST:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
 
-app.get('/', (req, res) => res.send("Backend Badminton OK"));
-
-app.listen(port, () => console.log(`Serveur sur port ${port}`));
+app.listen(port, () => console.log(`Backend Badminton sur port ${port}`));
