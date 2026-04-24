@@ -40,23 +40,24 @@ app.get('/api/joueurs', async (req, res) => {
     if (!creneau) return res.json([]);
 
     if (date && date !== "") {
-      // CAS A : On veut l'historique d'une séance (table seances)
+      // CAS A : Historique d'une séance (on ajoute prenom)
       const query = `
-        SELECT * FROM seances 
+        SELECT nom, prenom, licence, presence, date_seance, creneau_code 
+        FROM seances 
         WHERE creneau_code = $1 AND date_seance = $2 
-        ORDER BY nom ASC
+        ORDER BY nom ASC, prenom ASC
       `;
       const result = await pool.query(query, [creneau, date]);
       res.json(result.rows);
     } else {
-      // CAS B : Liste de TOUS les joueurs du créneau (via la table de liaison)
-      // On joint 'joueurs_creneaux' avec 'joueurs' pour avoir les noms
+      // CAS B : Liste des inscrits via la table de liaison
+      // On récupère 'nom' ET 'prenom' depuis la table joueurs
       const query = `
-        SELECT j.nom, j.licence, jc.creneau_code 
+        SELECT j.nom, j.prenom, j.licence, jc.creneau_code 
         FROM joueurs_creneaux jc
         JOIN joueurs j ON jc.licence = j.licence
         WHERE jc.creneau_code = $1
-        ORDER BY j.nom ASC
+        ORDER BY j.nom ASC, j.prenom ASC
       `;
       const result = await pool.query(query, [creneau]);
       res.json(result.rows || []);
