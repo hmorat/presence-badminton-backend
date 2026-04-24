@@ -39,31 +39,28 @@ app.get('/api/joueurs', async (req, res) => {
     const { creneau, date } = req.query;
     if (!creneau) return res.json([]);
 
-    let query;
-    let params;
-
     if (date && date !== "") {
-      // MODE HISTORIQUE : On récupère les présences avec la licence
-      query = `
-        SELECT nom, licence, presence, date_seance, creneau_code 
-        FROM seances 
+      // CAS A : On veut l'historique d'une séance (table seances)
+      const query = `
+        SELECT * FROM seances 
         WHERE creneau_code = $1 AND date_seance = $2 
         ORDER BY nom ASC
       `;
-      params = [creneau, date];
+      const result = await pool.query(query, [creneau, date]);
+      res.json(result.rows);
     } else {
-      // MODE INSCRIPTION : On prend la liste unique des joueurs par licence
-      query = `
-        SELECT DISTINCT ON (licence) nom, licence, creneau_code 
-        FROM seances 
-        WHERE creneau_code = $1 
-        ORDER BY licence, nom ASC
+      // CAS B : Liste de TOUS les joueurs du créneau (via la table de liaison)
+      // On joint 'joueurs_creneaux' avec 'joueurs' pour avoir les noms
+      const query = `
+        SELECT j.nom, j.licence, jc.creneau_code 
+        FROM joueurs_creneaux jc
+        JOIN joueurs j ON jc.licence = j.licence
+        WHERE jc.creneau_code = $1
+        ORDER BY j.nom ASC
       `;
-      params = [creneau];
+      const result = await pool.query(query, [creneau]);
+      res.json(result.rows || []);
     }
-
-    const result = await pool.query(query, params);
-    res.json(result.rows || []);
   } catch (err) {
     console.error("Erreur SQL:", err.message);
     res.json([]);
