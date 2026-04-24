@@ -14,27 +14,25 @@ const pool = new Pool({
 app.use(cors());
 app.use(express.json());
 
-// 1. CRÉNEAUX : Tri alphabétique sur le code (ex: A, B, C...)
+// 1. MENU CRÉNEAUX : Trié par code (A1, A2, B1...)
 app.get('/api/creneaux', async (req, res) => {
   try {
-    const result = await pool.query(`
-      SELECT * FROM creneaux 
-      ORDER BY creneau_code ASC
-    `);
+    const result = await pool.query(`SELECT * FROM creneaux ORDER BY creneau_code ASC`);
     res.json(result.rows);
   } catch (err) {
     res.status(500).json([]);
   }
 });
 
-// 2. JOUEURS : On récupère via la table de liaison
+// 2. LISTE DES JOUEURS : La partie qui bloque
 app.get('/api/joueurs', async (req, res) => {
   try {
-    const { creneau, date } = req.query;
-    if (!creneau || !date) return res.json([]);
+    let { creneau, date } = req.query;
+    if (!creneau) return res.json([]);
 
-    // On utilise ILIKE pour être moins strict sur les majuscules/minuscules
-    // On garde INNER JOIN car la licence est censée être identique
+    // SÉCURITÉ : Si le front envoie "F11 : LUNDI", on ne garde que "F11"
+    const codeCourt = creneau.split(' ')[0].trim();
+
     const query = `
       SELECT 
         j.nom, 
@@ -48,12 +46,15 @@ app.get('/api/joueurs', async (req, res) => {
         AND s.date_seance = $2 
         AND s.creneau_code = $1
       )
-      WHERE jc.creneau_code ILIKE $1
-      ORDER BY j.nom ASC, j.prenom ASC
+      WHERE jc.creneau_code = $1
+      ORDER BY j.nom ASC
     `;
 
-    const result = await pool.query(query, [creneau, date]);
-    console.log(`Recherche ${creneau} : ${result.rowCount} joueurs trouvés`);
+    const result = await pool.query(query, [codeCourt, date || null]);
+    
+    // Log pour vérifier dans la console Render
+    console.log(`Recherche pour code: [${codeCourt}] | Trouvé: ${result.rowCount} joueurs`);
+    
     res.json(result.rows);
   } catch (err) {
     console.error("Erreur SQL:", err.message);
@@ -61,9 +62,10 @@ app.get('/api/joueurs', async (req, res) => {
   }
 });
 
-// 3. SAUVEGARDE (POST)
+// 3. ENREGISTREMENT
 app.post('/api/presences', async (req, res) => {
   const { creneau, date, joueurs } = req.body;
+  const codeCourt = creneau.split(' ')[0].trim();
   try {
     for (const j of joueurs) {
       await pool.query(`
@@ -71,7 +73,7 @@ app.post('/api/presences', async (req, res) => {
         VALUES ($1, $2, $3, $4, $5, $6)
         ON CONFLICT (licence, date_seance, creneau_code) 
         DO UPDATE SET presence = EXCLUDED.presence
-      `, [j.licence, creneau, date, j.presence, j.nom, j.prenom]);
+      `, [j.licence, codeCourt, date, j.presence, j.nom, j.prenom]);
     }
     res.json({ success: true });
   } catch (err) {
@@ -79,4 +81,4 @@ app.post('/api/presences', async (req, res) => {
   }
 });
 
-app.listen(port, () => console.log(`Backend Badminton sur port ${port}`));
+app.listen(port, () => console.log(`Serveur prêt sur le port ${port}`));
