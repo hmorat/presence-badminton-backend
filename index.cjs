@@ -14,26 +14,33 @@ const pool = new Pool({
 app.use(cors());
 app.use(express.json());
 
-// 1. RÉCUPÉRER LES CRÉNEAUX
+/**
+ * 1. RÉCUPÉRER LES CRÉNEAUX (Trié par Nom de créneau)
+ */
 app.get('/api/creneaux', async (req, res) => {
   try {
-    const result = await pool.query(`SELECT * FROM creneaux ORDER BY jour, creneau_code`);
+    // Tri alphabétique simple sur le code du créneau (ex: F11, PE41...)
+    const result = await pool.query(`
+      SELECT * FROM creneaux 
+      ORDER BY creneau_code ASC
+    `);
     res.json(result.rows);
   } catch (err) {
+    console.error("Erreur /api/creneaux:", err.message);
     res.status(500).json([]);
   }
 });
 
-// 2. RÉCUPÉRER LES JOUEURS (Via table de liaison)
+/**
+ * 2. RÉCUPÉRER LES JOUEURS (Via table de liaison joueurs_creneaux)
+ */
 app.get('/api/joueurs', async (req, res) => {
   try {
     const { creneau, date } = req.query;
     if (!creneau || !date) return res.json([]);
 
-    // Cette requête fait un "pont" entre 3 informations :
-    // - La liste des inscrits (joueurs_creneaux)
-    // - Leurs noms/prénoms (joueurs)
-    // - Leurs présences à cette date (seances)
+    // Note : On utilise LEFT JOIN pour s'assurer que si un joueur est dans 
+    // joueurs_creneaux, il apparaît même s'il n'a pas encore de ligne dans seances.
     const query = `
       SELECT 
         j.nom, 
@@ -41,20 +48,20 @@ app.get('/api/joueurs', async (req, res) => {
         j.licence,
         COALESCE(s.presence, false) as presence
       FROM joueurs_creneaux jc
-      JOIN joueurs j ON jc.licence = j.licence
+      INNER JOIN joueurs j ON jc.licence = j.licence
       LEFT JOIN seances s ON (
-        s.licence = jc.licence 
+        s.licence = j.licence 
         AND s.date_seance = $2 
         AND s.creneau_code = $1
       )
-      WHERE UPPER(jc.creneau_code) = UPPER($1)
+      WHERE jc.creneau_code = $1
       ORDER BY j.nom ASC, j.prenom ASC
     `;
 
-    const result = await pool.query(query, [creneau.trim(), date]);
+    const result = await pool.query(query, [creneau, date]);
     
-    // Log pour t'aider à déboguer dans Render
-    console.log(`Requête pour ${creneau} le ${date} : ${result.rowCount} joueurs trouvés.`);
+    // Log crucial pour voir ce qui remonte dans Render
+    console.log(`[DEBUG] Créneau: ${creneau}, Date: ${date} -> ${result.rowCount} joueurs trouvés`);
     
     res.json(result.rows);
   } catch (err) {
@@ -63,7 +70,9 @@ app.get('/api/joueurs', async (req, res) => {
   }
 });
 
-// 3. ENREGISTRER (POST)
+/**
+ * 3. ENREGISTRER LES PRÉSENCES
+ */
 app.post('/api/presences', async (req, res) => {
   const { creneau, date, joueurs } = req.body;
   try {
@@ -77,9 +86,11 @@ app.post('/api/presences', async (req, res) => {
     }
     res.json({ success: true });
   } catch (err) {
-    console.error(err);
+    console.error("Erreur POST:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
 
-app.listen(port, () => console.log(`Démarré sur le port ${port}`));
+app.get('/', (req, res) => res.send("Backend Badminton OK"));
+
+app.listen(port, () => console.log(`Serveur sur port ${port}`));
