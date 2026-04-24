@@ -14,11 +14,7 @@ app.use(express.json());
 // Utilise la variable DATABASE_URL configurée sur Vercel
 // Remplace toute la partie du pool par ceci :
 const pool = new Pool({
-  user: 'postgres',
-  host: 'db.wjzrdrtumjnfqwnoyehe.supabase.co',
-  database: 'postgres',
-  password: 'F@rDolivet68!', // Ici, mets le vrai mot de passe avec @ et !
-  port: 5432,
+  connectionString: process.env.DATABASE_URL, // <--- C'est cette ligne qui va lire le lien du Pooler
   ssl: {
     rejectUnauthorized: false
   }
