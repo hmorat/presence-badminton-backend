@@ -6,64 +6,72 @@ require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 3000;
 
-// 1. Configuration de la connexion (Utilise les variables d'environnement)
+// 1. Connexion sécurisée à Supabase
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false // Indispensable pour Supabase/Render
+    rejectUnauthorized: false
   }
 });
 
-// 2. Middlewares
 app.use(cors());
 app.use(express.json());
 
-// 3. Route pour récupérer la liste des créneaux (Dropdown)
+// 2. Route Créneaux : Triés par JOUR puis par NOM (Ordre alphabétique)
 app.get('/api/creneaux', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM creneaux ORDER BY jour, horaire');
+    // On trie d'abord par jour pour la cohérence, puis par creneau_code alphabétique
+    const result = await pool.query(`
+      SELECT * FROM creneaux 
+      ORDER BY 
+        CASE 
+          WHEN jour = 'LUNDI' THEN 1
+          WHEN jour = 'MARDI' THEN 2
+          WHEN jour = 'MERCREDI' THEN 3
+          WHEN jour = 'JEUDI' THEN 4
+          WHEN jour = 'VENDREDI' THEN 5
+          WHEN jour = 'SAMEDI' THEN 6
+          WHEN jour = 'DIMANCHE' THEN 7
+        END, 
+        creneau_code ASC
+    `);
     res.json(result.rows);
   } catch (err) {
-    console.error("Erreur /api/creneaux:", err.message);
-    res.status(500).json({ error: "Erreur lors de la récupération des créneaux" });
+    console.error(err.message);
+    res.status(500).json({ error: "Erreur lors du chargement des créneaux" });
   }
 });
 
-// 4. Route pour récupérer les séances/joueurs (Avec la JOINTURE)
-// C'est ici qu'on fait le lien entre 'seances' et 'creneaux'
+// 3. Route Joueurs : Correction du lien entre 'seances' et 'creneaux'
 app.get('/api/joueurs', async (req, res) => {
   try {
-    const { creneau } = req.query; // Récupère le code envoyé par le frontend (ex: PE41:1)
+    const { creneau } = req.query; // Le code envoyé par le front (ex: PE41:1)
 
     if (!creneau) {
-      return res.status(400).json({ error: "Le paramètre creneau est requis" });
+      return res.status(400).json({ error: "Aucun créneau sélectionné" });
     }
 
-    // Requête SQL corrigée : 
-    // On sélectionne tout dans 'seances' (s.*)
-    // Mais on vérifie que le 'creneau_code' dans la table 'creneaux' (c) correspond
+    // On joint les deux tables pour filtrer par 'creneau_code' 
+    // qui se trouve dans la table 'creneaux'
     const query = `
       SELECT s.* FROM seances s
       JOIN creneaux c ON s.creneau_id = c.id
       WHERE c.creneau_code = $1
+      ORDER BY s.entraineur ASC
     `;
 
     const result = await pool.query(query, [creneau]);
     
-    // On renvoie toujours un tableau (même vide) pour éviter le plantage .map
+    // On renvoie un tableau vide [] si aucun joueur n'est trouvé 
+    // Cela évite l'écran blanc (TypeError: d.map is not a function)
     res.json(result.rows || []);
     
   } catch (err) {
-    console.error("Erreur /api/joueurs:", err.message);
-    res.status(500).json({ error: "Erreur technique", message: err.message });
+    console.error("Erreur technique joueurs:", err.message);
+    res.status(500).json({ error: "Erreur serveur", details: err.message });
   }
 });
 
-// 5. Test de connexion simple
-app.get('/', (req, res) => {
-  res.send('Backend Presence Badminton opérationnel !');
-});
-
 app.listen(port, () => {
-  console.log(`Serveur démarré sur le port ${port}`);
+  console.log(`Serveur prêt sur le port ${port}`);
 });
