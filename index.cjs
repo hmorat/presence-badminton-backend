@@ -14,23 +14,24 @@ const pool = new Pool({
 app.use(cors());
 app.use(express.json());
 
-// 1. MENU CRÉNEAUX : Trié par code (A1, A2, B1...)
+// 1. MENU CRÉNEAUX : Trié par code (A, B, C...)
 app.get('/api/creneaux', async (req, res) => {
   try {
     const result = await pool.query(`SELECT * FROM creneaux ORDER BY creneau_code ASC`);
     res.json(result.rows);
   } catch (err) {
+    console.error("Erreur créneaux:", err.message);
     res.status(500).json([]);
   }
 });
 
-// 2. LISTE DES JOUEURS : La partie qui bloque
+// 2. LISTE DES JOUEURS : Fusion entre Inscrits et Présences
 app.get('/api/joueurs', async (req, res) => {
   try {
-    let { creneau, date } = req.query;
-    if (!creneau) return res.json([]);
+    const { creneau, date } = req.query;
+    if (!creneau || !date) return res.json([]);
 
-    // SÉCURITÉ : Si le front envoie "F11 : LUNDI", on ne garde que "F11"
+    // On extrait le code court (ex: "F11") au cas où le front envoie "F11 : LUNDI"
     const codeCourt = creneau.split(' ')[0].trim();
 
     const query = `
@@ -47,25 +48,26 @@ app.get('/api/joueurs', async (req, res) => {
         AND s.creneau_code = $1
       )
       WHERE jc.creneau_code = $1
-      ORDER BY j.nom ASC
+      ORDER BY j.nom ASC, j.prenom ASC
     `;
 
-    const result = await pool.query(query, [codeCourt, date || null]);
-    
-    // Log pour vérifier dans la console Render
-    console.log(`Recherche pour code: [${codeCourt}] | Trouvé: ${result.rowCount} joueurs`);
-    
+    const result = await pool.query(query, [codeCourt, date]);
+    console.log(`[LOG] ${codeCourt} à la date ${date} : ${result.rowCount} joueurs trouvés`);
     res.json(result.rows);
+
   } catch (err) {
-    console.error("Erreur SQL:", err.message);
-    res.json([]);
+    console.error("Erreur SQL Joueurs:", err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 
-// 3. ENREGISTREMENT
+// 3. SAUVEGARDE DES PRÉSENCES
 app.post('/api/presences', async (req, res) => {
   const { creneau, date, joueurs } = req.body;
+  if (!creneau || !date || !joueurs) return res.status(400).json({ error: "Données manquantes" });
+  
   const codeCourt = creneau.split(' ')[0].trim();
+
   try {
     for (const j of joueurs) {
       await pool.query(`
@@ -77,6 +79,7 @@ app.post('/api/presences', async (req, res) => {
     }
     res.json({ success: true });
   } catch (err) {
+    console.error("Erreur Save:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
