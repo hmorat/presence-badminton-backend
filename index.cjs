@@ -43,13 +43,22 @@ app.get('/api/joueurs', async (req, res) => {
     let params;
 
     if (date && date !== "") {
-      // Si une date est choisie : on cherche les pointages de ce jour précis
-      query = `SELECT * FROM seances WHERE creneau_code = $1 AND date_seance = $2 ORDER BY nom ASC`;
+      // MODE HISTORIQUE : On récupère les présences avec la licence
+      query = `
+        SELECT nom, licence, presence, date_seance, creneau_code 
+        FROM seances 
+        WHERE creneau_code = $1 AND date_seance = $2 
+        ORDER BY nom ASC
+      `;
       params = [creneau, date];
     } else {
-      // Si aucune date : on affiche la liste de référence (tous les joueurs du créneau)
-      // Le DISTINCT ON évite les doublons si un joueur apparaît sur plusieurs dates
-      query = `SELECT DISTINCT ON (nom) * FROM seances WHERE creneau_code = $1 ORDER BY nom ASC`;
+      // MODE INSCRIPTION : On prend la liste unique des joueurs par licence
+      query = `
+        SELECT DISTINCT ON (licence) nom, licence, creneau_code 
+        FROM seances 
+        WHERE creneau_code = $1 
+        ORDER BY licence, nom ASC
+      `;
       params = [creneau];
     }
 
@@ -57,8 +66,9 @@ app.get('/api/joueurs', async (req, res) => {
     res.json(result.rows || []);
   } catch (err) {
     console.error("Erreur SQL:", err.message);
-    res.json([]); // Anti-écran blanc
+    res.json([]);
   }
 });
+
 
 app.listen(port, () => console.log(`Serveur prêt sur le port ${port}`));
