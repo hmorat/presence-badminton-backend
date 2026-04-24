@@ -12,10 +12,15 @@ app.use(express.json());
 
 // 2. Configuration de la connexion Supabase
 // Utilise la variable DATABASE_URL configurée sur Vercel
+// Remplace toute la partie du pool par ceci :
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  user: 'postgres',
+  host: 'db.wjzrdrtumjnfqwnoyehe.supabase.co',
+  database: 'postgres',
+  password: 'F@rDolivet68!', // Ici, mets le vrai mot de passe avec @ et !
+  port: 5432,
   ssl: {
-    rejectUnauthorized: false // Obligatoire pour Supabase
+    rejectUnauthorized: false
   }
 });
 
