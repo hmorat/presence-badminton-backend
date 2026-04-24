@@ -10,11 +10,27 @@ app.use(express.json());
 // =============================
 // CONNEXION POSTGRES (SUPABASE)
 // =============================
+const { Pool } = require('pg');
+
+// Cette ligne est CRUCIALE : elle dit "Utilise la variable DATABASE_URL, 
+// et si elle n'existe pas (en local), utilise localhost"
+const connectionString = process.env.DATABASE_URL;
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: connectionString,
   ssl: {
-    rejectUnauthorized: false,
-  },
+    // Indispensable pour Supabase sur Vercel/Render
+    rejectUnauthorized: false 
+  }
+});
+
+// Petit test au démarrage pour voir si ça marche
+pool.query('SELECT NOW()', (err, res) => {
+  if (err) {
+    console.error("Erreur de connexion à la base :", err.message);
+  } else {
+    console.log("Connecté à Supabase avec succès !");
+  }
 });
 
 // =============================
