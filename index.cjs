@@ -12,7 +12,7 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// 1. Liste des créneaux (Tri naturel)
+// 1. Liste des créneaux
 app.get('/api/creneaux', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM creneaux ORDER BY LENGTH(creneau_code), creneau_code ASC');
@@ -20,7 +20,7 @@ app.get('/api/creneaux', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// 2. Liste des joueurs (Flexible sur la casse et les espaces)
+// 2. Liste des joueurs
 app.get('/api/joueurs', async (req, res) => {
   const { creneau, date } = req.query;
   try {
@@ -40,7 +40,7 @@ app.get('/api/joueurs', async (req, res) => {
   } catch (err) { res.status(500).json([]); }
 });
 
-// 3. Enregistrement des présences
+// 3. Sauvegarde
 app.post('/api/presences', async (req, res) => {
   const { date, joueurs, creneau } = req.body;
   try {
@@ -55,7 +55,7 @@ app.post('/api/presences', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// 4. Export Global (Toutes les dates, tous les créneaux)
+// 4. Export Global
 app.get('/api/export-global', async (req, res) => {
   try {
     const result = await pool.query(`
@@ -67,11 +67,11 @@ app.get('/api/export-global', async (req, res) => {
         CASE WHEN p.present THEN 'PRÉSENT' ELSE 'ABSENT' END as "Statut"
       FROM presences p
       LEFT JOIN joueurs j ON TRIM(p.licence::TEXT) = TRIM(COALESCE(j.licence, j."Licence")::TEXT)
-      ORDER BY p.date_seance DESC, p.creneau_code ASC, "Nom" ASC
+      ORDER BY p.date_seance DESC, p.creneau_code ASC
     `);
     res.json(result.rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`Serveur sur port ${PORT}`));
+app.listen(PORT, () => console.log(`Serveur OK`));
