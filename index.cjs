@@ -22,7 +22,7 @@ app.get('/api/creneaux', async (req, res) => {
   }
 });
 
-// 2. Liste des joueurs (Avec COALESCE pour gérer les majuscules/minuscules des colonnes)
+// 2. Liste des joueurs (CORRIGÉ : cherche licence, Licence, nom, Nom, etc.)
 app.get('/api/joueurs', async (req, res) => {
   const { creneau, date } = req.query;
   try {
@@ -40,7 +40,7 @@ app.get('/api/joueurs', async (req, res) => {
     `, [creneau, date]);
     res.json(result.rows);
   } catch (err) {
-    console.error(err);
+    console.error("Erreur SQL joueurs:", err);
     res.status(500).json([]);
   }
 });
@@ -63,7 +63,7 @@ app.post('/api/presences', async (req, res) => {
   }
 });
 
-// 4. ROUTE D'EXPORT (C'est celle-ci qui manquait !)
+// 4. Export global (CORRIGÉ : avec créneau et date)
 app.get('/api/export-global', async (req, res) => {
   try {
     const result = await pool.query(`
@@ -80,7 +80,7 @@ app.get('/api/export-global', async (req, res) => {
     res.json(result.rows);
   } catch (err) {
     console.error("Erreur Export:", err);
-    res.status(500).json({ error: "Erreur lors de l'extraction des données" });
+    res.status(500).json({ error: "Erreur lors de l'export" });
   }
 });
 
