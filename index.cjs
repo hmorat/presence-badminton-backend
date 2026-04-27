@@ -12,7 +12,7 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// 1. Liste des créneaux (Triés par code)
+// 1. Liste des créneaux (Triés par code : F1, F2, F11...)
 app.get('/api/creneaux', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM creneaux ORDER BY LENGTH(creneau_code), creneau_code ASC');
@@ -22,24 +22,23 @@ app.get('/api/creneaux', async (req, res) => {
   }
 });
 
-// 2. Liste des joueurs (Lien flexible licence/Licence)
+// 2. Liste des joueurs selon le créneau (Le lien vital)
 app.get('/api/joueurs', async (req, res) => {
   const { creneau, date } = req.query;
   try {
     const result = await pool.query(`
       SELECT 
-        COALESCE(j.licence, j."Licence") as licence, 
-        COALESCE(j.nom, j."Nom") as nom, 
-        COALESCE(j.prenom, j."Prenom") as prenom,
+        j.licence, j.nom, j.prenom,
         COALESCE(p.present, false) as present
       FROM joueurs j
-      JOIN joueurs_creneaux jc ON TRIM(COALESCE(j.licence, j."Licence")::TEXT) = TRIM(COALESCE(jc.licence, jc."Licence")::TEXT)
-      LEFT JOIN presences p ON TRIM(COALESCE(j.licence, j."Licence")::TEXT) = TRIM(p.licence::TEXT) AND p.date_seance = $2
-      WHERE jc.creneau_code ILIKE TRIM($1) OR jc."creneau_code" ILIKE TRIM($1)
-      ORDER BY 2 ASC
+      JOIN joueurs_creneaux jc ON jc.licence = j.licence
+      LEFT JOIN presences p ON p.licence = j.licence AND p.date_seance = $2
+      WHERE jc.creneau_code = $1
+      ORDER BY j.nom ASC
     `, [creneau, date]);
     res.json(result.rows);
   } catch (err) {
+    console.error(err);
     res.status(500).json([]);
   }
 });
@@ -51,7 +50,7 @@ app.post('/api/presences', async (req, res) => {
     for (const j of joueurs) {
       await pool.query(`
         INSERT INTO presences (licence, date_seance, creneau_code, present)
-        VALUES (TRIM($1::TEXT), $2, TRIM($3::TEXT), $4)
+        VALUES ($1, $2, $3, $4)
         ON CONFLICT (licence, date_seance) 
         DO UPDATE SET present = EXCLUDED.present
       `, [j.licence, date, creneau, j.present]);
