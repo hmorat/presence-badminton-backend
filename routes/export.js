@@ -70,7 +70,9 @@ app.get('/api/export-global', async (req, res) => {
       ORDER BY p.date_seance DESC, p.creneau_code ASC
     `);
     res.json(result.rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 const PORT = process.env.PORT || 10000;
