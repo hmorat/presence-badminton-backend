@@ -56,6 +56,8 @@ app.post('/api/presences', async (req, res) => {
 });
 
 // Export avec colonnes Créneau et Date
+// ... (haut du fichier identique)
+
 app.get('/api/export-global', async (req, res) => {
   try {
     const result = await pool.query(`
@@ -70,8 +72,13 @@ app.get('/api/export-global', async (req, res) => {
       ORDER BY p.date_seance DESC, p.creneau_code ASC
     `);
     res.json(result.rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erreur SQL" });
+  }
 });
+
+// ... (bas du fichier identique)
 
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => console.log(`Serveur prêt`));
