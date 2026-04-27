@@ -12,7 +12,6 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// 1. Liste des créneaux
 app.get('/api/creneaux', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM creneaux ORDER BY LENGTH(creneau_code), creneau_code ASC');
@@ -20,7 +19,6 @@ app.get('/api/creneaux', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// 2. Liste des joueurs (Lien robuste licence/Licence)
 app.get('/api/joueurs', async (req, res) => {
   const { creneau, date } = req.query;
   try {
@@ -40,7 +38,6 @@ app.get('/api/joueurs', async (req, res) => {
   } catch (err) { res.status(500).json([]); }
 });
 
-// 3. Sauvegarde des présences
 app.post('/api/presences', async (req, res) => {
   const { date, joueurs, creneau } = req.body;
   try {
@@ -55,7 +52,7 @@ app.post('/api/presences', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// 4. Export Global avec Créneau et Date
+// ROUTE EXPORT : Ajout du créneau et de la date en colonnes 1 et 2
 app.get('/api/export-global', async (req, res) => {
   try {
     const result = await pool.query(`
@@ -70,10 +67,8 @@ app.get('/api/export-global', async (req, res) => {
       ORDER BY p.date_seance DESC, p.creneau_code ASC
     `);
     res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`Serveur export.js démarré`));
+app.listen(PORT, () => console.log(`Serveur prêt`));
