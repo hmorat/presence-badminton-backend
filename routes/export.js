@@ -12,6 +12,7 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
+// Liste des créneaux (récupère l'entraîneur avec gestion de la casse)
 app.get('/api/creneaux', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM creneaux ORDER BY LENGTH(creneau_code), creneau_code ASC');
@@ -19,6 +20,7 @@ app.get('/api/creneaux', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Liste des joueurs
 app.get('/api/joueurs', async (req, res) => {
   const { creneau, date } = req.query;
   try {
@@ -38,6 +40,7 @@ app.get('/api/joueurs', async (req, res) => {
   } catch (err) { res.status(500).json([]); }
 });
 
+// Sauvegarde
 app.post('/api/presences', async (req, res) => {
   const { date, joueurs, creneau } = req.body;
   try {
@@ -52,7 +55,7 @@ app.post('/api/presences', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ROUTE EXPORT : Ajout du créneau et de la date en colonnes 1 et 2
+// Export avec colonnes Créneau et Date
 app.get('/api/export-global', async (req, res) => {
   try {
     const result = await pool.query(`
