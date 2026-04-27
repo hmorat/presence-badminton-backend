@@ -13,7 +13,6 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// Configuration Outlook
 const transporter = nodemailer.createTransport({
   host: "smtp.office365.com",
   port: 587,
@@ -22,7 +21,7 @@ const transporter = nodemailer.createTransport({
   tls: { ciphers: 'SSLv3', rejectUnauthorized: false }
 });
 
-// 1. Créneaux
+// Créneaux triés
 app.get('/api/creneaux', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM creneaux ORDER BY LENGTH(creneau_code), creneau_code ASC');
@@ -30,7 +29,7 @@ app.get('/api/creneaux', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// 2. Joueurs (Version Flexible)
+// Joueurs (Lien licence souple)
 app.get('/api/joueurs', async (req, res) => {
   const { creneau, date } = req.query;
   try {
@@ -50,7 +49,6 @@ app.get('/api/joueurs', async (req, res) => {
   } catch (err) { res.status(500).json([]); }
 });
 
-// 3. Présences
 app.post('/api/presences', async (req, res) => {
   const { date, joueurs, creneau } = req.body;
   try {
@@ -65,7 +63,6 @@ app.post('/api/presences', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// 4. Mails (Version Flexible)
 app.post('/api/send-email', async (req, res) => {
   const { creneau, objet, message } = req.body;
   try {
@@ -77,10 +74,9 @@ app.post('/api/send-email', async (req, res) => {
       AND (j.courrier IS NOT NULL OR j."Courrier" IS NOT NULL)
     `, [creneau]);
     const emails = result.rows.map(r => r.email?.trim()).filter(e => e && e.includes('@'));
-    if (emails.length === 0) return res.status(404).json({ error: "Aucun email trouvé." });
     await transporter.sendMail({ from: process.env.EMAIL_USER, bcc: emails.join(','), subject: objet, text: message });
-    res.json({ success: true, count: emails.length });
-  } catch (err) { res.status(500).json({ error: "Erreur envoi" }); }
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: "Erreur" }); }
 });
 
 const PORT = process.env.PORT || 10000;
