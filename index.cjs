@@ -34,7 +34,8 @@ const transporter = nodemailer.createTransport({
 // 1. Récupérer les créneaux
 app.get('/api/creneaux', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM creneaux ORDER BY jour, horaire');
+    // Le "ORDER BY creneau_code ASC" est crucial ici
+    const result = await pool.query('SELECT * FROM creneaux ORDER BY creneau_code ASC');
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
