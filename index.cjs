@@ -42,8 +42,10 @@ app.get('/api/creneaux', async (req, res) => {
 });
 
 // 2. Récupérer les joueurs d'un créneau avec leur état de présence
+// Vérifiez que cette partie dans votre index.cjs ne renvoie pas d'erreur 500
 app.get('/api/joueurs', async (req, res) => {
   const { creneau, date } = req.query;
+  if (!creneau || !date) return res.json([]); // Sécurité
   try {
     const result = await pool.query(`
       SELECT j.licence, j.nom, j.prenom, j.courrier,
@@ -56,7 +58,8 @@ app.get('/api/joueurs', async (req, res) => {
     `, [creneau, date]);
     res.json(result.rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    res.status(500).json([]); // Renvoie un tableau vide en cas d'erreur pour éviter de faire planter le front
   }
 });
 
