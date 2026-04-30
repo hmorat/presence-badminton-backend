@@ -60,12 +60,12 @@ app.post('/api/presences', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-// 4. Export global de tout l'historique
+// 4. Export global avec date formatée (Français)
 app.get('/api/export-global', async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
-        p.date_seance as "Date",
+        TO_CHAR(p.date_seance, 'DD/MM/YYYY') as "Date",
         p.creneau_code as "Créneau",
         j.nom as "Nom",
         j.prenom as "Prénom",
@@ -76,6 +76,7 @@ app.get('/api/export-global', async (req, res) => {
     `);
     res.json(result.rows);
   } catch (err) {
+    console.error("Erreur Export:", err);
     res.status(500).json({ error: err.message });
   }
 });
