@@ -57,16 +57,17 @@ app.post('/api/presences', async (req, res) => {
     for (const j of joueurs) {
       await pool.query(`
         INSERT INTO presences (licence, date_seance, creneau_code, present)
-        VALUES (TRIM($1::TEXT), $2, TRIM($3::TEXT), $4)
+        VALUES ($1, $2, $3, $4)
         ON CONFLICT (licence, date_seance) 
         DO UPDATE SET 
           present = EXCLUDED.present,
-          creneau_code = EXCLUDED.creneau_code
+          creneau_code = EXCLUDED.creneau_code,
+          updated_at = NOW()
       `, [j.licence, date, creneau, j.present]);
     }
     res.json({ success: true });
   } catch (err) {
-    console.error("Détail Erreur DB:", err.message); // Regarde tes logs Render !
+    console.error("❌ ERREUR DB ENREGISTREMENT :", err.message);
     res.status(500).json({ error: err.message });
   }
 });
