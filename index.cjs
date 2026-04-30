@@ -48,15 +48,17 @@ app.post('/api/presences', async (req, res) => {
   const { date, joueurs, creneau } = req.body;
   try {
     for (const j of joueurs) {
+      // On utilise des guillemets doubles pour les noms de colonnes sensibles
       await pool.query(`
-        INSERT INTO presences (licence, date_seance, creneau_code, present)
+        INSERT INTO presences (licence, date_seance, "creneau_code", present)
         VALUES ($1, $2, $3, $4)
         ON CONFLICT (licence, date_seance) 
-        DO UPDATE SET present = EXCLUDED.present
+        DO UPDATE SET present = EXCLUDED.present, "creneau_code" = EXCLUDED."creneau_code"
       `, [j.licence, date, creneau, j.present]);
     }
     res.json({ success: true });
   } catch (err) {
+    console.error("Erreur DB détaillée:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
