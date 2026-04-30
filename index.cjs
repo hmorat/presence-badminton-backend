@@ -60,6 +60,25 @@ app.post('/api/presences', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// 4. Export global de tout l'historique
+app.get('/api/export-global', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        p.date_seance as "Date",
+        p.creneau_code as "Créneau",
+        j.nom as "Nom",
+        j.prenom as "Prénom",
+        CASE WHEN p.present THEN 'PRÉSENT' ELSE 'ABSENT' END as "Statut"
+      FROM presences p
+      JOIN joueurs j ON j.licence = p.licence
+      ORDER BY p.date_seance DESC, p.creneau_code ASC, j.nom ASC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => console.log(`Serveur prêt sur port ${PORT}`));
