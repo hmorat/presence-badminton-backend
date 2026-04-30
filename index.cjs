@@ -30,18 +30,23 @@ app.get('/api/joueurs', async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
-        COALESCE(j.licence, j."Licence") as licence, 
+        COALESCE(j.licence, j."Licence")::TEXT as licence, 
         COALESCE(j.nom, j."Nom") as nom, 
         COALESCE(j.prenom, j."Prenom") as prenom,
         COALESCE(p.present, false) as present
       FROM joueurs j
-      JOIN joueurs_creneaux jc ON TRIM(COALESCE(j.licence, j."Licence")::TEXT) = TRIM(COALESCE(jc.licence, jc."Licence")::TEXT)
+      INNER JOIN joueurs_creneaux jc ON TRIM(COALESCE(j.licence, j."Licence")::TEXT) = TRIM(COALESCE(jc.licence, jc."Licence")::TEXT)
       LEFT JOIN presences p ON TRIM(COALESCE(j.licence, j."Licence")::TEXT) = TRIM(p.licence::TEXT) AND p.date_seance = $2
       WHERE jc.creneau_code = $1 OR jc."creneau_code" = $1
-      ORDER BY 2 ASC
+      ORDER BY nom ASC
     `, [creneau, date]);
+    
+    console.log(`Joueurs trouvés pour ${creneau}: ${result.rows.length}`); // Pour vérifier dans tes logs
     res.json(result.rows);
-  } catch (err) { res.status(500).json([]); }
+  } catch (err) { 
+    console.error("Erreur SQL Joueurs:", err.message);
+    res.status(500).json([]); 
+  }
 });
 
 // SAUVEGARDE AMÉLIORÉE (C'est ici que ça bloquait probablement)
