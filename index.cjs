@@ -30,21 +30,21 @@ app.get('/api/joueurs', async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
-        COALESCE(j.licence, j."Licence")::TEXT as licence, 
-        COALESCE(j.nom, j."Nom") as nom, 
-        COALESCE(j.prenom, j."Prenom") as prenom,
+        COALESCE(j."licence", j."Licence")::TEXT as licence, 
+        COALESCE(j."nom", j."Nom") as nom, 
+        COALESCE(j."prenom", j."Prenom") as prenom,
         COALESCE(p.present, false) as present
       FROM joueurs j
-      INNER JOIN joueurs_creneaux jc ON TRIM(COALESCE(j.licence, j."Licence")::TEXT) = TRIM(COALESCE(jc.licence, jc."Licence")::TEXT)
-      LEFT JOIN presences p ON TRIM(COALESCE(j.licence, j."Licence")::TEXT) = TRIM(p.licence::TEXT) AND p.date_seance = $2
+      INNER JOIN joueurs_creneaux jc ON TRIM(COALESCE(j."licence", j."Licence")::TEXT) = TRIM(COALESCE(jc."licence", jc."Licence")::TEXT)
+      LEFT JOIN presences p ON TRIM(COALESCE(j."licence", j."Licence")::TEXT) = TRIM(p.licence::TEXT) AND p.date_seance = $2
       WHERE jc.creneau_code = $1 OR jc."creneau_code" = $1
       ORDER BY nom ASC
     `, [creneau, date]);
     
-    console.log(`Joueurs trouvés pour ${creneau}: ${result.rows.length}`); // Pour vérifier dans tes logs
+    console.log(`Joueurs trouvés pour ${creneau}: ${result.rows.length}`);
     res.json(result.rows);
   } catch (err) { 
-    console.error("Erreur SQL Joueurs:", err.message);
+    console.error("Erreur SQL Joueurs détaillée:", err.message);
     res.status(500).json([]); 
   }
 });
