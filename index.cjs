@@ -78,15 +78,17 @@ app.get('/api/export-global', async (req, res) => {
       SELECT 
         TO_CHAR(p.date_seance, 'DD/MM/YYYY') as "Date",
         p.creneau_code as "Créneau",
-        COALESCE(j.nom, j."Nom") as "Nom",
-        COALESCE(j.prenom, j."Prenom") as "Prénom",
-        CASE WHEN p.present THEN 'PRÉSENT' ELSE 'ABSENT' END as "Statut"
+        j.nom as "Nom",
+        j.prenom as "Prénom",
+        p.present as "Statut" -- On prend directement la valeur texte
       FROM presences p
-      LEFT JOIN joueurs j ON TRIM(p.licence::TEXT) = TRIM(COALESCE(j.licence, j."Licence")::TEXT)
-      ORDER BY p.date_seance DESC, p.creneau_code ASC
+      JOIN joueurs j ON j.licence = p.licence
+      ORDER BY p.date_seance DESC, p.creneau_code ASC, j.nom ASC
     `);
     res.json(result.rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 const PORT = process.env.PORT || 10000;
