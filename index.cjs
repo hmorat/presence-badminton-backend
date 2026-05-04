@@ -28,21 +28,21 @@ app.get('/api/creneaux', async (req, res) => {
 app.get('/api/joueurs', async (req, res) => {
   const { creneau, date } = req.query;
   try {
-    // La requête simplifiée basée sur ta capture d'écran
     const result = await pool.query(`
       SELECT 
-        j.licence as licence, 
-        j.nom as nom, 
-        j.prenom as prenom,
-        COALESCE(p.present, false) as present
-      FROM joueurs j
-      INNER JOIN joueurs_creneaux jc ON TRIM(j.licence::TEXT) = TRIM(jc.licence::TEXT)
-      LEFT JOIN presences p ON TRIM(j.licence::TEXT) = TRIM(p.licence::TEXT) AND p.date_seance = $2
+        j.licence, 
+        j.nom, 
+        j.prenom,
+        -- On force le résultat de la présence en TEXT pour éviter le conflit
+        COALESCE(p.present::TEXT, 'ABSENT') as present
+      FROM joueurs_creneaux jc
+      LEFT JOIN joueurs j ON TRIM(j.licence::TEXT) = TRIM(jc.licence::TEXT)
+      LEFT JOIN presences p ON TRIM(p.licence::TEXT) = TRIM(j.licence::TEXT) AND p.date_seance = $2
       WHERE jc.creneau_code = $1
       ORDER BY j.nom ASC
     `, [creneau, date]);
     
-    console.log(`✅ ${result.rows.length} joueurs trouvés pour le créneau ${creneau}`);
+    console.log(`✅ ${result.rows.length} joueurs envoyés pour ${creneau}`);
     res.json(result.rows);
   } catch (err) { 
     console.error("❌ ERREUR SQL JOUEURS :", err.message);
